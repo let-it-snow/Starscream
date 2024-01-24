@@ -587,41 +587,43 @@ open class WebSocket : NSObject, StreamDelegate, WebSocketClient, WSStreamDelega
                 port = 80
             }
         }
-        request.setValue(headerWSUpgradeValue, forHTTPHeaderField: headerWSUpgradeName)
-        request.setValue(headerWSConnectionValue, forHTTPHeaderField: headerWSConnectionName)
-        headerSecKey = generateWebSocketKey()
-        request.setValue(headerWSVersionValue, forHTTPHeaderField: headerWSVersionName)
-        request.setValue(headerSecKey, forHTTPHeaderField: headerWSKeyName)
-        
-        if enableCompression {
-            let val = "permessage-deflate; client_max_window_bits; server_max_window_bits=15"
-            request.setValue(val, forHTTPHeaderField: headerWSExtensionName)
-        }
-        let hostValue = request.allHTTPHeaderFields?[headerWSHostName] ?? "\(url.host!):\(port!)"
-        request.setValue(hostValue, forHTTPHeaderField: headerWSHostName)
-
-        var path = url.absoluteString
-        let offset = (url.scheme?.count ?? 2) + 3
-        path = String(path[path.index(path.startIndex, offsetBy: offset)..<path.endIndex])
-        if let range = path.range(of: "/") {
-            path = String(path[range.lowerBound..<path.endIndex])
-        } else {
-            path = "/"
-            if let query = url.query {
-                path += "?" + query
+        DispatchQueue.main.async {
+            self.request.setValue(self.headerWSUpgradeValue, forHTTPHeaderField: self.headerWSUpgradeName)
+            self.request.setValue(self.headerWSConnectionValue, forHTTPHeaderField: self.headerWSConnectionName)
+            self.headerSecKey = self.generateWebSocketKey()
+            self.request.setValue(self.headerWSVersionValue, forHTTPHeaderField: self.headerWSVersionName)
+            self.request.setValue(self.headerSecKey, forHTTPHeaderField: self.headerWSKeyName)
+            
+            if self.enableCompression {
+                let val = "permessage-deflate; client_max_window_bits; server_max_window_bits=15"
+                self.request.setValue(val, forHTTPHeaderField: self.headerWSExtensionName)
             }
-        }
-        
-        var httpBody = "\(request.httpMethod ?? "GET") \(path) HTTP/1.1\r\n"
-        if let headers = request.allHTTPHeaderFields {
-            for (key, val) in headers {
-                httpBody += "\(key): \(val)\r\n"
+            let hostValue = self.request.allHTTPHeaderFields?[self.headerWSHostName] ?? "\(url.host!):\(port!)"
+            self.request.setValue(hostValue, forHTTPHeaderField: self.headerWSHostName)
+            
+            var path = url.absoluteString
+            let offset = (url.scheme?.count ?? 2) + 3
+            path = String(path[path.index(path.startIndex, offsetBy: offset)..<path.endIndex])
+            if let range = path.range(of: "/") {
+                path = String(path[range.lowerBound..<path.endIndex])
+            } else {
+                path = "/"
+                if let query = url.query {
+                    path += "?" + query
+                }
             }
+            
+            var httpBody = "\(self.request.httpMethod ?? "GET") \(path) HTTP/1.1\r\n"
+            if let headers = self.request.allHTTPHeaderFields {
+                for (key, val) in headers {
+                    httpBody += "\(key): \(val)\r\n"
+                }
+            }
+            httpBody += "\r\n"
+            
+            self.initStreamsWithData(httpBody.data(using: .utf8)!, Int(port!))
+            self.advancedDelegate?.websocketHttpUpgrade(socket: self, request: httpBody)
         }
-        httpBody += "\r\n"
-        
-        initStreamsWithData(httpBody.data(using: .utf8)!, Int(port!))
-        advancedDelegate?.websocketHttpUpgrade(socket: self, request: httpBody)
     }
 
     /**
